@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/busybox sh
 #
 # Hybris adaptation bootstrapping initramfs init script.
 #
@@ -21,13 +21,16 @@
 
 # General logging
 set -x
+/bin/busybox echo 255 > /sys/class/leds/led:rgb_green/brightness
 exec > /init.log 2>&1
-echo "Running Mer Boat Loader"
 
 BOOTLOGO=%BOOTLOGO%
 ALWAYSDEBUG=%ALWAYSDEBUG%
 DATA_PARTITION=%DATA_PART%
 DEFAULT_OS=%DEFAULT_OS%
+
+echo "Running Mer Boat Loader"
+
 
 set_welcome_msg(){
 cat <<EOF > /etc/issue.net
@@ -63,7 +66,6 @@ EOF
 }
 
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
-
 # Default setting is rndis - add mass_storage for a debug boot
 # enable using usb_setup
 USB_FUNCTIONS=rndis
@@ -123,7 +125,8 @@ mount_stowaways() {
 	mkdir /data
 	mkdir /target
 
-	mount $DATA_PARTITION /data
+	mount -t ext4 $DATA_PARTITION /data
+	touch /data/.mountdata
 	mount --bind /data/${data_subdir}/.stowaways/${DEFAULT_OS} /target
 	mkdir /target/data # in new fs
 	mount --bind /data/${data_subdir} /target/data
@@ -261,24 +264,37 @@ check_kernel_config() {
 # Now either initrd or rootfs sequence
 
 if [ "$DONE_SWITCH" = "no" ]; then
-    EXPLICIT_BUSYBOX=""
+    EXPLICIT_BUSYBOX="/bin/busybox"
     TELNET_DEBUG_PORT=23
     /bin/busybox --install -s
     date
-
     do_mount_devprocsys
 
     do_hotplug_scan
 
+    run_debug_session "Aries initramfs"
     # Support /dev/block/mmcXXX only in initrd phase
-    ln -s . /dev/block
+    #ln -s . /dev/block
+#    mkdir /system 
+#    /bin/mount -t ext4 /dev/block/mmcblk0p23 /system 
+#    /bin/tad_static /dev/block/mmcblk0 1,16 
+#    /bin/ta_qmi_service 
+#    /bin/qmuxd 
+#    /bin/rmt_storage 
+    write /sys/module/subsystem_restart/parameters/enable_ramdumps 0 
+    write /sys/bus/msm_subsys/devices/subsys0/restart_level "related" 
+    write /sys/bus/msm_subsys/devices/subsys1/restart_level "related" 
+    write /sys/bus/msm_subsys/devices/subsys2/restart_level "related" 
+    write /sys/bus/msm_subsys/devices/subsys3/restart_level "related" 
+    write /sys/module/msm_thermal/core_control/enabled 0
+    write /sys/devices/system/cpu/cpu1/online 1
+    write /sys/module/msm_thermal/core_control/enabled 1
     ln -s /proc/mounts /etc/mtab
 
     check_kernel_config
 
     bootsplash
-
-    mount_stowaways
+    #mount_stowaways
 
     # No target debug unless we debug here too (for now)
 

@@ -97,6 +97,13 @@ case "$DEVICE" in
             "$@"
         ;;
 
+    "d5803" | "aries" | "sirius" | "amami" | "leo" | "tianchi")
+        sed -i \
+            -e 's block/platform/msm_sdcc.1/by-name/system block/mmcblk0p23 ' \
+            -e 's block/platform/msm_sdcc.1/by-name/userdata block/mmcblk0p25 ' \
+            "$@"
+        ;;
+
     *)
 	cat <<EOF
 

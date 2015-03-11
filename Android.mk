@@ -48,8 +48,8 @@ HYBRIS_FSTABS := $(shell find device/*/$(TARGET_DEVICE) -name *fstab* | grep -v 
 
 # Get the unique /dev field(s) from the line(s) containing the fs mount point
 # Note the perl one-liner uses double-$ as per Makefile syntax
-HYBRIS_BOOT_PART := $(shell /usr/bin/perl -w -e '$$fs=shift; while (<>) { next unless /^$$fs\s|\s$$fs\s/;for (split) {next unless m(^/dev); print "$$_\n"; }}' /boot $(HYBRIS_FSTABS) | sort -u)
-HYBRIS_DATA_PART := $(shell /usr/bin/perl -w -e '$$fs=shift; while (<>) { next unless /^$$fs\s|\s$$fs\s/;for (split) {next unless m(^/dev); print "$$_\n"; }}' /data $(HYBRIS_FSTABS) | sort -u)
+HYBRIS_BOOT_PART := /dev/block/platform/msm_sdcc.1/by-name/boot
+HYBRIS_DATA_PART := /dev/block/platform/msm_sdcc.1/by-name/userdata
 
 $(warning ********************* /boot appears to live on $(HYBRIS_BOOT_PART))
 $(warning ********************* /data appears to live on $(HYBRIS_DATA_PART))
@@ -59,12 +59,16 @@ $(error There should be a one and only one device entry for HYBRIS_BOOT_PART and
 endif
 
 # Command used to make the image
-MKBOOTIMG := mkbootimg
+MKBOOTIMG := mkqcdtbootimg
 BB_STATIC := $(PRODUCT_OUT)/utilities/busybox
+INSTALLED_DTIMAGE_TARGET := $(PRODUCT_OUT)/dtbs
 
-HYBRIS_BOOTIMAGE_ARGS := \
-	$(addprefix --second ,$(INSTALLED_2NDBOOTLOADER_TARGET)) \
-	--kernel $(INSTALLED_KERNEL_TARGET)
+#3. add --dt option to hybris boot mk to pick up device tree
+
+#HYBRIS_BOOTIMAGE_ARGS := \
+#        $(addprefix --second ,$(INSTALLED_2NDBOOTLOADER_TARGET)) \
+#        --kernel $(INSTALLED_KERNEL_TARGET) \
+#        --dt $(INSTALLED_DTIMAGE_TARGET)
 
 ifdef BOARD_KERNEL_BASE
   HYBRIS_BOOTIMAGE_ARGS += --base $(BOARD_KERNEL_BASE)
@@ -112,7 +116,7 @@ $(LOCAL_BUILT_MODULE): $(INSTALLED_KERNEL_TARGET) $(BOOT_RAMDISK) $(MKBOOTIMG)
 	@echo "Making hybris-boot.img in $(dir $@) using $(INSTALLED_KERNEL_TARGET) $(BOOT_RAMDISK)"
 	@mkdir -p $(dir $@)
 	@rm -rf $@
-	$(hide)$(MKBOOTIMG) --ramdisk $(BOOT_RAMDISK) $(HYBRIS_BOOTIMAGE_ARGS) $(BOARD_MKBOOTIMG_ARGS) --output $@
+	$(MKBOOTIMG) --kernel $(INSTALLED_KERNEL_TARGET) --ramdisk $(BOOT_RAMDISK) $(HYBRIS_BOOTIMAGE_ARGS) $(BOARD_MKBOOTIMG_ARGS) --dt_dir $(INSTALLED_DTIMAGE_TARGET) --dt_version 2 --output $@
 
 $(BOOT_RAMDISK): $(BOOT_RAMDISK_FILES) $(BB_STATIC)
 	@echo "Making initramfs : $@"
@@ -155,7 +159,7 @@ $(LOCAL_BUILT_MODULE): $(INSTALLED_KERNEL_TARGET) $(RECOVERY_RAMDISK) $(MKBOOTIM
 	@echo "Making hybris-recovery.img in $(dir $@) using $(INSTALLED_KERNEL_TARGET) $(RECOVERY_RAMDISK)"
 	@mkdir -p $(dir $@)
 	@rm -rf $@
-	$(hide)$(MKBOOTIMG) --ramdisk $(RECOVERY_RAMDISK) $(HYBRIS_RECOVERYIMAGE_ARGS) $(BOARD_MKRECOVERYIMG_ARGS) --output $@
+	$(MKBOOTIMG) --kernel $(INSTALLED_KERNEL_TARGET) --ramdisk $(RECOVERY_RAMDISK) $(HYBRIS_RECOVERYIMAGE_ARGS) $(BOARD_MKRECOVERYIMG_ARGS) --dt_dir $(INSTALLED_DTIMAGE_TARGET) --dt_version 2 --output $@
 
 $(RECOVERY_RAMDISK): $(RECOVERY_RAMDISK_FILES) $(BB_STATIC)
 	@echo "Making initramfs : $@"
